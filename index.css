@@ -327,8 +327,28 @@ body.dark .header {
 }
 
 .logo img {
-    height: 32px; /* Adjust height as needed */
+    /* Make logos scale proportionally and responsively.
+       - Do not force width:100% here (that can stretch if a height is constrained)
+       - Use max-height so logos remain visually consistent across layouts
+       - Use clamp() to provide a sensible min / preferred / max height that adapts to viewport
+       - object-fit: contain keeps intrinsic aspect ratio when browsers need to fit the bitmap
+    */
+    height: auto;
     width: auto;
+    max-width: 100%;
+    max-height: clamp(28px, 3.5vw, 48px); /* scales between 28px and 48px based on viewport */
+    object-fit: contain;
+    display: block;
+}
+
+/* Admin settings preview: keep previewed logo proportional and constrained */
+.logo-preview img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 96px;
+    object-fit: contain;
+    display: block;
 }
 
 .nav-links {
