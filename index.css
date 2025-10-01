@@ -351,6 +351,14 @@ body.dark .header {
     display: block;
 }
 
+/* Desktop-specific cap: make header logo smaller on larger screens (homepage desktop fix) */
+@media (min-width: 1024px) {
+    .logo img {
+        /* Reduce maximum height on desktop so the logo doesn't look oversized */
+        max-height: 36px;
+    }
+}
+
 .nav-links {
   display: none;
   list-style: none;
