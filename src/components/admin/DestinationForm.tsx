@@ -29,7 +29,14 @@ const ALL_FACILITIES = [
 
 export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, onSave, onCancel, allCategories }) => {
     const { showToast } = useToast();
-    const [formData, setFormData] = useState<Destination>(destination);
+    // For new destinations (id === 0) keep numeric fields empty so inputs start blank
+    const initialFormData: any = {
+        ...destination,
+        duration: destination.id === 0 ? '' : destination.duration,
+        minPeople: destination.id === 0 ? '' : destination.minPeople,
+        priceTiers: (destination.priceTiers || []).map(pt => ({ ...pt, minPeople: destination.id === 0 && (pt.minPeople === 0 || pt.minPeople === undefined) ? '' : pt.minPeople }))
+    };
+    const [formData, setFormData] = useState<any>(initialFormData);
     const [isSaving, setIsSaving] = useState(false);
     const [customFacility, setCustomFacility] = useState('');
     const initialImageUrls = destination.galleryImages.length > 0
@@ -63,7 +70,12 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, o
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'duration' || name === 'minPeople' ? Number(value) : value }));
+        if (name === 'duration' || name === 'minPeople') {
+            // Allow empty string so input can start blank and user can clear it without jumping to 0
+            setFormData((prev: any) => ({ ...prev, [name]: value === '' ? '' : Number(value) }));
+        } else {
+            setFormData((prev: any) => ({ ...prev, [name]: value }));
+        }
     };
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -276,8 +288,8 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, o
     // Price Tiers Handlers
     const handlePriceTierChange = (index: number, field: 'minPeople', value: string) => {
         const newTiers = [...formData.priceTiers];
-        newTiers[index] = { ...newTiers[index], [field]: Number(value) };
-        setFormData(prev => ({...prev, priceTiers: newTiers}));
+        newTiers[index] = { ...newTiers[index], [field]: value === '' ? '' : Number(value) };
+        setFormData((prev: any) => ({...prev, priceTiers: newTiers}));
     };
 
     const handlePriceTierPriceChange = (index: number, value: string) => {
@@ -418,10 +430,13 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, o
                 // tell server which Cloudinary public_ids were removed by the user so it can delete them
                 // dedupe and only include if non-empty
                 ...(removedPublicIds && removedPublicIds.length > 0 ? { removed_public_ids: Array.from(new Set(removedPublicIds.filter(Boolean))) } : {}),
-                // ensure numeric fields are numbers
-                duration: Number(formData.duration) || 0,
-                minPeople: Number(formData.minPeople) || 0,
-                priceTiers: formData.priceTiers || [],
+                // ensure numeric fields are numbers; allow empty inputs to resolve to 0
+                duration: formData.duration === '' ? 0 : Number(formData.duration) || 0,
+                minPeople: formData.minPeople === '' ? 0 : Number(formData.minPeople) || 0,
+                priceTiers: (formData.priceTiers || []).map((pt: any) => ({
+                    minPeople: pt.minPeople === '' ? 0 : Number(pt.minPeople) || 0,
+                    price: pt.price || 0
+                })),
                 itinerary: formData.itinerary || [],
                 facilities: formData.facilities || [],
                 categories: formData.categories || [],
@@ -577,11 +592,29 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, o
                 <div className="form-row-compact" style={{ gridTemplateColumns: '1fr 1fr' }}>
                     <div className="form-group">
                         <label htmlFor="duration">Durasi (Hari)</label>
-                        <input type="number" id="duration" name="duration" value={formData.duration} onChange={handleChange} required />
+                        <input
+                            type="number"
+                            id="duration"
+                            name="duration"
+                            value={formData.duration}
+                            onChange={handleChange}
+                            onWheel={(e) => { (e.target as HTMLElement).blur(); }}
+                            inputMode="numeric"
+                            required
+                        />
                     </div>
                     <div className="form-group">
                         <label htmlFor="minPeople">Minimal Peserta</label>
-                        <input type="number" id="minPeople" name="minPeople" value={formData.minPeople} onChange={handleChange} required />
+                        <input
+                            type="number"
+                            id="minPeople"
+                            name="minPeople"
+                            value={formData.minPeople}
+                            onChange={handleChange}
+                            onWheel={(e) => { (e.target as HTMLElement).blur(); }}
+                            inputMode="numeric"
+                            required
+                        />
                     </div>
                 </div>
                 
@@ -596,9 +629,17 @@ export const DestinationForm: React.FC<DestinationFormProps> = ({ destination, o
                                      <button type="button" className="btn btn-danger btn-small" onClick={() => setPriceTierToDeleteIndex(index)} disabled={formData.priceTiers.length <= 1}>Hapus</button>
                                  </div>
                                  <div className="form-row-compact" style={{ gridTemplateColumns: '1fr 2fr', marginBottom: 0 }}>
-                                    <div className="form-group">
+                                        <div className="form-group">
                                         <label htmlFor={`tier-minpeople-${index}`}>Minimal Peserta</label>
-                                        <input type="number" id={`tier-minpeople-${index}`} value={tier.minPeople} onChange={(e) => handlePriceTierChange(index, 'minPeople', e.target.value)} required />
+                                        <input
+                                            type="number"
+                                            id={`tier-minpeople-${index}`}
+                                            value={tier.minPeople}
+                                            onChange={(e) => handlePriceTierChange(index, 'minPeople', e.target.value)}
+                                            onWheel={(e) => { (e.target as HTMLElement).blur(); }}
+                                            inputMode="numeric"
+                                            required
+                                        />
                                     </div>
                                     <div className="form-group">
                                         <label htmlFor={`tier-price-${index}`}>Harga per Orang (IDR)</label>
