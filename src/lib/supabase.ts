@@ -312,50 +312,17 @@ export async function deleteBlogPost(id: number): Promise<void> {
 }
 
 // Insert an order (used by the public booking flow). Maps camelCase fields to DB column names.
-export async function insertOrder(order: any): Promise<any> {
-  const supabase = getSupabaseClient();
-  // Map to DB column names
-  const payload: any = {
-    id: order.id,
-    customer_name: order.customerName,
-    customer_phone: order.customerPhone,
-    destination_id: order.destinationId,
-    destination_title: order.destinationTitle,
-    order_date: order.orderDate, // timestamptz
-    departure_date: order.departureDate ?? null, // date
-    participants: order.participants,
-    total_price: order.totalPrice,
-    status: order.status,
-    payment_status: order.paymentStatus ?? null,
-    payment_history: order.paymentHistory ?? null,
-    notes: order.notes ?? null,
-  };
+// --- Orders & Invoices helpers have been archived on 2025-10-02 ---
+// The original implementations were moved to src/lib/_archived/supabase_orders.ts
+// and the endpoints to api/_archived/. These stubs are kept to avoid
+// breaking imports while removing active order/invoice behavior.
 
-  const { data, error } = await supabase.from('orders').insert(payload).select();
-  if (error) throw error;
-  return data?.[0] ?? null;
+export async function insertOrder(order: any): Promise<any> {
+  throw new Error('insertOrder has been archived. Use the archived helpers at src/lib/_archived/supabase_orders.ts if you need the original implementation.');
 }
 
 export async function fetchOrders(): Promise<any[]> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase.from('orders').select('*').order('order_date', { ascending: false });
-  if (error) throw error;
-  const mapRow = (row: any) => ({
-    id: row.id,
-    customerName: row.customer_name ?? row.customerName ?? '',
-    customerPhone: row.customer_phone ?? row.customerPhone ?? '',
-    destinationId: row.destination_id ?? row.destinationId ?? null,
-    destinationTitle: row.destination_title ?? row.destinationTitle ?? '',
-    orderDate: row.order_date ?? row.orderDate ?? null,
-    departureDate: row.departure_date ?? row.departureDate ?? null,
-    participants: row.participants ?? row.participants ?? 0,
-    totalPrice: Number(row.total_price ?? row.totalPrice ?? 0),
-    status: row.status ?? 'Baru',
-    paymentStatus: row.payment_status ?? row.paymentStatus ?? undefined,
-    paymentHistory: row.payment_history ?? row.paymentHistory ?? undefined,
-    notes: row.notes ?? null,
-  });
-  return (data || []).map(mapRow);
+  return [];
 }
 
 // Fetch app settings from the single-row app_settings table (id = 1)
@@ -575,40 +542,7 @@ export async function upsertAppSettings(settings: any): Promise<any | null> {
 
 // Update an existing order by id. `patch` should use camelCase keys (e.g. paymentHistory) and will be mapped to DB columns.
 export async function updateOrder(id: number, patch: any): Promise<any> {
-  const supabase = getSupabaseClient();
-  const payload: any = {};
-  if (patch.customerName !== undefined) payload.customer_name = patch.customerName;
-  if (patch.customerPhone !== undefined) payload.customer_phone = patch.customerPhone;
-  if (patch.destinationId !== undefined) payload.destination_id = patch.destinationId;
-  if (patch.destinationTitle !== undefined) payload.destination_title = patch.destinationTitle;
-  if (patch.orderDate !== undefined) payload.order_date = patch.orderDate;
-  if (patch.departureDate !== undefined) payload.departure_date = patch.departureDate;
-  if (patch.participants !== undefined) payload.participants = patch.participants;
-  if (patch.totalPrice !== undefined) payload.total_price = patch.totalPrice;
-  if (patch.status !== undefined) payload.status = patch.status;
-  if (patch.paymentStatus !== undefined) payload.payment_status = patch.paymentStatus;
-  if (patch.paymentHistory !== undefined) payload.payment_history = patch.paymentHistory;
-  if (patch.notes !== undefined) payload.notes = patch.notes;
-
-  const { data, error } = await supabase.from('orders').update(payload).eq('id', id).select();
-  if (error) throw error;
-  const row = data?.[0] ?? null;
-  if (!row) return null;
-  return {
-    id: row.id,
-    customerName: row.customer_name ?? row.customerName ?? '',
-    customerPhone: row.customer_phone ?? row.customerPhone ?? '',
-    destinationId: row.destination_id ?? row.destinationId ?? null,
-    destinationTitle: row.destination_title ?? row.destinationTitle ?? '',
-    orderDate: row.order_date ?? row.orderDate ?? null,
-    departureDate: row.departure_date ?? row.departureDate ?? null,
-    participants: row.participants ?? row.participants ?? 0,
-    totalPrice: Number(row.total_price ?? row.totalPrice ?? 0),
-    status: row.status ?? 'Baru',
-    paymentStatus: row.payment_status ?? row.paymentStatus ?? undefined,
-    paymentHistory: row.payment_history ?? row.paymentHistory ?? undefined,
-    notes: row.notes ?? null,
-  };
+  throw new Error('updateOrder has been archived. See src/lib/_archived/supabase_orders.ts');
 }
 
 
@@ -618,178 +552,25 @@ export async function updateOrder(id: number, patch: any): Promise<any> {
 // fallback object with a generated id (timestamp) that the client can use to build a
 // one-off invoice link. Invoice rows should contain at least: id, order_id, total, metadata, created_at
 export async function createInvoiceForOrder(orderId: number, total: number, metadata: any = {}): Promise<any> {
-  const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  // If running in browser, prefer server endpoint which performs verification and uses service_role key.
-  const isBrowser = typeof window !== 'undefined';
-  if (isBrowser) {
-    try {
-      // Try to get current session token so server can verify admin claim
-      const supabase = getSupabaseClient();
-      let sessionToken = '';
-      try {
-        const { data } = await supabase.auth.getSession();
-        sessionToken = data?.session?.access_token || '';
-      } catch (e) {
-        sessionToken = '';
-      }
-      if (!sessionToken) {
-        // Enforce server-only creation: require admin session.
-        throw new Error('Missing admin session. Invoice creation must be performed by a logged-in admin via the server endpoint.');
-      }
-
-      const resp = await fetch('/api/create-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`
-        },
-        body: JSON.stringify({ order_id: orderId, total, metadata })
-      });
-      if (resp.ok) {
-        const json = await resp.json();
-        return json?.invoice ?? json?.data ?? null;
-      }
-      const txt = await resp.text().catch(() => null);
-      throw new Error('[createInvoiceForOrder] server endpoint failed: ' + (txt || resp.status));
-    } catch (err) {
-      console.warn('[createInvoiceForOrder] server endpoint call failed', err);
-      throw err;
-    }
-  }
-  // Server-side (non-browser) execution: perform direct insert via Supabase client.
-  if (!useSupabase) {
-    return { id: orderId, order_id: orderId, total, metadata, share_token: null };
-  }
-
-  try {
-    const supabase = getSupabaseClient();
-    const payload = { order_id: orderId, total, metadata } as any;
-    const { data: inserted, error: insertError } = await supabase.from('invoices').insert(payload).select().limit(1).single();
-    if (!insertError && inserted) return inserted;
-    const { data: existing, error: fetchErr } = await supabase.from('invoices').select('*').eq('order_id', orderId).limit(1).single();
-    if (!fetchErr && existing) return existing;
-    console.warn('[SUPABASE] createInvoiceForOrder insert failed', insertError?.message || insertError);
-    throw insertError || new Error('Invoice insert failed');
-  } catch (err) {
-    console.warn('[SUPABASE] createInvoiceForOrder error', err);
-    throw err;
-  }
+  throw new Error('createInvoiceForOrder has been archived. See src/lib/_archived/supabase_orders.ts');
 }
 
 // Fetch invoice by invoice id (primary key in invoices table)
 export async function fetchInvoiceById(invoiceId: number): Promise<any | null> {
-  const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!useSupabase) return null;
-  try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('invoices').select('*').eq('id', invoiceId).limit(1).single();
-    if (error) {
-      console.warn('[SUPABASE] fetchInvoiceById failed', error.message || error);
-      return null;
-    }
-    return data ?? null;
-  } catch (err) {
-    console.warn('[SUPABASE] fetchInvoiceById error', err);
-    return null;
-  }
+  return null;
 }
 
 // Fetch invoice by its share_token (public identifier)
 export async function fetchInvoiceByToken(token: string): Promise<any | null> {
-  const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!useSupabase) return null;
-  try {
-    const supabase = getSupabaseClient();
-    // Use RPC to call SECURITY DEFINER function that returns invoice by token.
-    // This avoids RLS blocking anonymous callers from selecting directly from invoices.
-    const { data, error } = await supabase.rpc('fetch_invoice_by_token', { p_token: token });
-    if (error) {
-      console.warn('[SUPABASE] fetchInvoiceByToken rpc failed', error.message || error);
-      return null;
-    }
-    // RPC returns an array of rows for set-returning functions; return first row if present
-    if (Array.isArray(data)) return data[0] ?? null;
-    return data ?? null;
-  } catch (err) {
-    console.warn('[SUPABASE] fetchInvoiceByToken error', err);
-    return null;
-  }
+  return null;
 }
 
 // Fetch invoice together with its order by token using security-definer RPC
 export async function fetchInvoiceWithOrderByToken(token: string): Promise<any | null> {
-  const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!useSupabase) return null;
-  try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.rpc('fetch_invoice_by_token_with_order', { p_token: token });
-    if (error) {
-      console.warn('[SUPABASE] fetchInvoiceWithOrderByToken rpc failed', error.message || error);
-      return null;
-    }
-    const row = Array.isArray(data) ? data[0] ?? null : data ?? null;
-    if (!row) return null;
-    // Map RPC columns to shapes the app expects
-    return {
-      invoice: {
-        id: row.invoice_id ?? row.id,
-        total: row.total,
-        metadata: row.metadata,
-        share_token: row.share_token,
-        created_at: row.created_at,
-      },
-      order: {
-        id: row.order_id,
-        customerName: row.customer_name,
-        customerPhone: row.customer_phone,
-        destinationId: row.destination_id,
-        destinationTitle: row.destination_title,
-        orderDate: row.order_date,
-        departureDate: row.departure_date,
-        participants: row.participants,
-        totalPrice: Number(row.total_price ?? row.totalPrice ?? 0),
-        status: row.status ?? 'Baru',
-        paymentStatus: row.payment_status ?? undefined,
-        paymentHistory: row.payment_history ?? undefined,
-        notes: row.notes ?? null,
-      }
-    };
-  } catch (err) {
-    console.warn('[SUPABASE] fetchInvoiceWithOrderByToken error', err);
-    return null;
-  }
+  return null;
 }
 
 // Fetch order by id (wrap existing fetchOrders filter behavior)
 export async function fetchOrderById(orderId: number): Promise<any | null> {
-  const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!useSupabase) return null;
-  try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).limit(1).single();
-    if (error) {
-      console.warn('[SUPABASE] fetchOrderById failed', error.message || error);
-      return null;
-    }
-    const row = data as any;
-    return row ? {
-      id: row.id,
-      customerName: row.customer_name ?? row.customerName ?? '',
-      customerPhone: row.customer_phone ?? row.customerPhone ?? '',
-      destinationId: row.destination_id ?? row.destinationId ?? null,
-      destinationTitle: row.destination_title ?? row.destinationTitle ?? '',
-      orderDate: row.order_date ?? row.orderDate ?? null,
-      departureDate: row.departure_date ?? row.departureDate ?? null,
-      participants: row.participants ?? row.participants ?? 0,
-      totalPrice: Number(row.total_price ?? row.totalPrice ?? 0),
-      status: row.status ?? 'Baru',
-      paymentStatus: row.payment_status ?? row.paymentStatus ?? undefined,
-      paymentHistory: row.payment_history ?? row.paymentHistory ?? undefined,
-      notes: row.notes ?? null,
-    } : null;
-  } catch (err) {
-    console.warn('[SUPABASE] fetchOrderById error', err);
-    return null;
-  }
+  return null;
 }

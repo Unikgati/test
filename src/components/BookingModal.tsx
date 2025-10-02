@@ -16,7 +16,7 @@ const getPriceForParticipants = (tiers: PriceTier[] | undefined, count: number):
 interface BookingModalProps {
   destination: Destination;
   onClose: () => void;
-  onCreateOrder: (orderData: {
+    onCreateOrder?: (orderData: {
     customerName: string;
     customerPhone: string;
     participants: number;
@@ -97,14 +97,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({ destination, onClose
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (validate()) {
-            onCreateOrder({
-                customerName: fullName,
-                customerPhone: phone,
-                participants: participants,
-                destination: destination,
-                departureDate: departureDate || undefined,
-                totalPrice: totalPrice,
-            });
+                if (typeof onCreateOrder === 'function') {
+                    onCreateOrder({
+                        customerName: fullName,
+                        customerPhone: phone,
+                        participants: participants,
+                        destination: destination,
+                        departureDate: departureDate || undefined,
+                        totalPrice: totalPrice,
+                    });
+                } else {
+                    // Fallback: open WhatsApp with a prefilled message
+                    const message = `Halo, saya ingin memesan paket ${destination.title} untuk ${participants} orang. Nama: ${fullName}. Tanggal keberangkatan: ${departureDate || '-'}.`;
+                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank');
+                }
             setIsSubmitted(true);
         }
     };

@@ -14,10 +14,10 @@ interface DestinationDetailPageProps {
     destination: Destination;
     setPage: (page: Page) => void;
     onBookNow: (destination: Destination) => void;
-    onCreateOrder?: (orderData: { customerName: string; customerPhone: string; participants: number; destination: Destination; departureDate?: string; totalPrice: number; }) => void;
+    // onCreateOrder removed; booking opens WhatsApp or uses BookingModal fallback
 }
 
-export const DestinationDetailPage: React.FC<DestinationDetailPageProps> = ({ destination, setPage, onBookNow, onCreateOrder }) => {
+export const DestinationDetailPage: React.FC<DestinationDetailPageProps> = ({ destination, setPage, onBookNow }) => {
     const location = useLocation();
     const openBookingFromState = (location && (location as any).state && (location as any).state.openBooking) || false;
     const [isBookingOpen, setIsBookingOpen] = useState<boolean>(openBookingFromState);
@@ -333,7 +333,7 @@ export const DestinationDetailPage: React.FC<DestinationDetailPageProps> = ({ de
                         <span className="booking-price-label">Mulai dari</span>
                         <span className="booking-price">{formattedPrice} <span>/ org</span></span>
                     </div>
-                        <button className="btn btn-primary btn-large" onClick={() => navigate('/order', { state: { destination } })}>Pesan</button>
+                        <button className="btn btn-primary btn-large" onClick={() => { try { onBookNow && onBookNow(destination); } catch { try { navigate('/'); } catch {} } }}>Pesan</button>
                 </div>
             </div>
                         {/* Ordering is handled on /order page now. */}

@@ -11,7 +11,7 @@ interface HomePageProps {
     onSearch: (query: string) => void;
     onViewDetail: (destination: Destination) => void;
     onBookNow: (destination: Destination) => void;
-    onCreateOrder?: (orderData: { customerName: string; customerPhone: string; participants: number; destination: Destination; departureDate?: string; totalPrice: number; }) => void;
+    // onCreateOrder is removed: booking now opens WhatsApp directly or uses BookingModal fallback
     onViewBlogDetail: (post: BlogPost) => void;
     setPage: (page: Page) => void;
     destinations: Destination[];
@@ -286,7 +286,7 @@ const BlogSection = ({ blogPosts, setPage, onViewDetail, isLoading }: { blogPost
     );
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBookNow, onCreateOrder, onViewBlogDetail, setPage, destinations, blogPosts, appSettings, isLoading = false, reviews = [] }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBookNow, onViewBlogDetail, setPage, destinations, blogPosts, appSettings, isLoading = false, reviews = [] }) => {
     // derive categories from destinations to feed the hero typing placeholder
     const categories = React.useMemo(() => {
         if (!destinations) return [] as string[];
@@ -297,7 +297,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBo
     const navigate = useNavigate();
 
     const openBookingFromCard = (dest: Destination) => {
-        navigate('/order', { state: { destination: dest } });
+    try { onBookNow && onBookNow(dest); } catch { try { navigate('/'); } catch {} }
     };
 
     return (

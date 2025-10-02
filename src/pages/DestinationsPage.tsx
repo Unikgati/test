@@ -8,14 +8,13 @@ interface AllDestinationsProps {
     onViewDetail: (d: Destination) => void;
     /** parent handler used as a fallback if page-local booking modal does not handle create */
     onBookNow: (d: Destination) => void;
-    /** optional: create order handler (passed from App) so local modal can persist orders */
-    onCreateOrder?: (orderData: { customerName: string; customerPhone: string; participants: number; destination: Destination; departureDate?: string; totalPrice: number; }) => void;
+    // onCreateOrder removed; booking now opens WhatsApp or uses BookingModal fallback
     isLoading?: boolean;
 }
 
 import DestinationSkeleton from '../components/DestinationSkeleton';
 
-export const DestinationsPage: React.FC<AllDestinationsProps> = ({ allDestinations, onViewDetail, onBookNow: parentOnBookNow, onCreateOrder, isLoading = false }) => {
+export const DestinationsPage: React.FC<AllDestinationsProps> = ({ allDestinations, onViewDetail, onBookNow: parentOnBookNow, isLoading = false }) => {
     const [selectedCategory, setSelectedCategory] = useState('Semua');
     const [activeBookingDest, setActiveBookingDest] = useState<Destination | null>(null);
     const navigate = useNavigate();
@@ -63,7 +62,7 @@ export const DestinationsPage: React.FC<AllDestinationsProps> = ({ allDestinatio
                                         destination={dest}
                                         onViewDetail={onViewDetail}
                                         // open page-local modal instead of navigating; fallback to parent handler when modal action completes
-                                        onBookNow={(d) => navigate('/order', { state: { destination: d } })}
+                                        onBookNow={(d) => { try { parentOnBookNow && parentOnBookNow(d); } catch { try { navigate('/'); } catch {} } }}
                                         showCategories={false}
                                     />
                                 ))}

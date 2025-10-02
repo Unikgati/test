@@ -30,3 +30,11 @@ Planning.txt
 SECURITY_ROTATION_AND_APPLY.txt
 README-ops.md
 README.mdlog.txt
+
+# Ignore archived admin pages and components (created during Orders removal)
+/src/pages/admin/_archived/
+/src/components/admin/_archived/
+
+# Ignore archived APIs and lib helpers
+/api/_archived/
+/src/lib/_archived/

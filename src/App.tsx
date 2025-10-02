@@ -2,13 +2,12 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { ToastProvider } from './components/Toast';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { WishlistProvider } from './contexts/WishlistContext';
-import { fetchDestinations, upsertDestination, deleteDestination as sbDeleteDestination, fetchBlogPosts, upsertBlogPost, deleteBlogPost as sbDeleteBlogPost, insertOrder, fetchOrders, updateOrder, fetchAppSettings, upsertAppSettings, fetchReviews } from './lib/supabase';
-import { Page, Destination, BlogPost, Order, OrderStatus, AppSettings } from './types';
+import { fetchDestinations, upsertDestination, deleteDestination as sbDeleteDestination, fetchBlogPosts, upsertBlogPost, deleteBlogPost as sbDeleteBlogPost, fetchAppSettings, upsertAppSettings, fetchReviews } from './lib/supabase';
+import { Page, Destination, BlogPost, AppSettings } from './types';
 import getSupabaseClient from './lib/supabase';
 // Removed demo seed data import to rely solely on Supabase (or empty state)
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import OrderPage from './pages/OrderPage';
 import { StickyWhatsAppButton } from './components/StickyWhatsAppButton';
 import { HomePage } from './pages/HomePage';
 import { DestinationsPage } from './pages/DestinationsPage';
@@ -22,7 +21,7 @@ import ReviewsPage from './pages/ReviewsPage';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import Loading from './components/Loading';
 const AdminLayout = React.lazy(() => import('./pages/admin/AdminLayout').then(module => ({ default: module.AdminLayout })));
-import InvoicePage from './pages/admin/InvoicePage';
+// Invoice page removed from app routes when Orders feature disabled
 import ThemeContext, { Theme, ThemeProvider } from './contexts/ThemeContext';
 
 // Function to lighten/darken a color
@@ -94,7 +93,7 @@ const App = () => {
   // Data moved to state for mutability. Start empty so UI reflects Supabase state.
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  // Orders feature removed: keep placeholder state removed
   const [reviews, setReviews] = useState<any[]>([]);
 
   // If Supabase env is configured, load remote data on mount
@@ -104,38 +103,20 @@ const App = () => {
 
     let mounted = true;
     (async () => {
-  try {
-    const remoteDestinations = await fetchDestinations();
-    const remoteBlog = await fetchBlogPosts();
-  const remoteOrders = await fetchOrders();
-    const remoteReviews = await fetchReviews();
-    if (!mounted) return;
-        // Always apply remote results even when empty arrays are returned. This ensures
-        // the app mirrors Supabase state (empty) instead of silently keeping local seed data.
+      try {
+        const [remoteDestinations, remoteBlog, remoteReviews] = await Promise.all([fetchDestinations(), fetchBlogPosts(), fetchReviews()]);
+        if (!mounted) return;
         if (Array.isArray(remoteDestinations)) {
-    // debug log removed in production build
           setDestinations(remoteDestinations as unknown as Destination[]);
           setSupabaseFetchStatus(prev => ({ ...prev, destinations: `ok (${remoteDestinations.length})`}));
         } else {
-          // debug log removed in production build
           setSupabaseFetchStatus(prev => ({ ...prev, destinations: 'invalid-shape' }));
         }
-
         if (Array.isArray(remoteBlog)) {
-          // debug log removed in production build
           setBlogPosts(remoteBlog as unknown as BlogPost[]);
           setSupabaseFetchStatus(prev => ({ ...prev, blog: `ok (${remoteBlog.length})`}));
         } else {
-          // debug log removed in production build
           setSupabaseFetchStatus(prev => ({ ...prev, blog: 'invalid-shape' }));
-        }
-        if (Array.isArray(remoteOrders)) {
-          // debug log removed in production build
-          setOrders(remoteOrders as unknown as Order[]);
-          setSupabaseFetchStatus(prev => ({ ...prev, orders: `ok (${remoteOrders.length})`}));
-        } else {
-          // debug log removed in production build
-          setSupabaseFetchStatus(prev => ({ ...prev, orders: 'invalid-shape' }));
         }
         if (Array.isArray(remoteReviews)) {
           setReviews(remoteReviews || []);
@@ -303,11 +284,10 @@ const App = () => {
     const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!useSupabase) return;
     try {
-      const [remoteDestinations, remoteBlog, remoteOrders] = await Promise.all([fetchDestinations(), fetchBlogPosts(), fetchOrders()]);
+      const [remoteDestinations, remoteBlog] = await Promise.all([fetchDestinations(), fetchBlogPosts()]);
       if (Array.isArray(remoteDestinations)) setDestinations(remoteDestinations as unknown as Destination[]);
       if (Array.isArray(remoteBlog)) setBlogPosts(remoteBlog as unknown as BlogPost[]);
-      if (Array.isArray(remoteOrders)) setOrders(remoteOrders as unknown as Order[]);
-      setSupabaseFetchStatus(prev => ({ ...prev, destinations: `refreshed`, blog: `refreshed`, orders: `refreshed` }));
+      setSupabaseFetchStatus(prev => ({ ...prev, destinations: `refreshed`, blog: `refreshed` }));
     } catch (err) {
       console.warn('[SUPABASE] refresh failed', err);
     }
@@ -394,9 +374,14 @@ const App = () => {
   };
 
   const handleBookNow = (destination: Destination) => {
-  // Navigate to centralized order page with destination in state
-  setSelectedDestination(destination);
-  try { navigate('/order', { state: { destination } }); } catch (e) {}
+    // Open WhatsApp with a prefilled message instead of internal order flow
+    const brand = appSettings.brandName ? `${appSettings.brandName}` : '';
+    const message = brand ? `Saya ingin bertanya tentang ${destination.title} - ${brand}` : `Saya ingin bertanya tentang ${destination.title}`;
+    // Use wa.me link with phone number from appSettings if available, otherwise open generic chat
+    const phone = appSettings.whatsappNumber ? appSettings.whatsappNumber.replace(/[^0-9+]/g, '') : '';
+    const encoded = encodeURIComponent(message);
+    const url = phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+    try { window.open(url, '_blank'); } catch (e) { try { window.location.href = url; } catch {} }
   };
   
   const handleViewBlogDetail = (post: BlogPost) => {
@@ -517,211 +502,7 @@ const App = () => {
     }
   };
 
-  // Handlers for Orders
-  const handleCreateOrder = (orderData: { customerName: string; customerPhone: string; participants: number; destination: Destination; departureDate?: string; totalPrice: number; }) => {
-    const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    const newOrder: Order = {
-      id: Date.now(),
-      customerName: orderData.customerName,
-      customerPhone: orderData.customerPhone,
-      participants: orderData.participants,
-      destinationId: orderData.destination.id,
-      destinationTitle: orderData.destination.title,
-      orderDate: new Date().toISOString(),
-      departureDate: orderData.departureDate,
-      status: 'Baru',
-      totalPrice: orderData.totalPrice // Use pre-calculated price from modal
-    };
-
-    // Optimistically add to local state first so UI responds immediately
-    setOrders(prev => [newOrder, ...prev]);
-
-    // Return a Promise so callers can await server confirmation/failure
-    return (async () => {
-      try {
-        const resp = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerName: newOrder.customerName,
-            customerPhone: newOrder.customerPhone,
-            destinationId: newOrder.destinationId,
-            destinationTitle: newOrder.destinationTitle,
-            participants: newOrder.participants,
-            departureDate: newOrder.departureDate,
-            totalPrice: newOrder.totalPrice,
-            notes: null,
-          })
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => null);
-          console.warn('[CREATE_ORDER] server endpoint failed', resp.status, text);
-          // fallback: try client-side insert if Supabase anon is configured
-          if (useSupabase) {
-            try { await insertOrder(newOrder); } catch (e) { console.warn('[SUPABASE] fallback insertOrder failed', e); }
-          }
-          throw new Error(`Server returned ${resp.status}`);
-        }
-
-        const json = await resp.json();
-        const saved = json?.data ?? null;
-        if (saved) {
-          // Replace optimistic order with persisted row (map DB fields to app shape)
-          setOrders(prev => prev.map(o => o.id === newOrder.id ? ({
-            id: saved.id ?? newOrder.id,
-            customerName: saved.customer_name ?? saved.customerName ?? newOrder.customerName,
-            customerPhone: saved.customer_phone ?? saved.customerPhone ?? newOrder.customerPhone,
-            participants: saved.participants ?? newOrder.participants,
-            destinationId: saved.destination_id ?? newOrder.destinationId,
-            destinationTitle: saved.destination_title ?? newOrder.destinationTitle,
-            orderDate: saved.order_date ?? newOrder.orderDate,
-            departureDate: saved.departure_date ?? newOrder.departureDate,
-            status: saved.status ?? newOrder.status,
-            totalPrice: saved.total_price ?? newOrder.totalPrice,
-          } as Order) : o));
-          return saved;
-        }
-
-        // If saved not present, attempt fallback insert
-        if (useSupabase) {
-          try { const fallback = await insertOrder(newOrder); return fallback; } catch (e) { console.warn('[SUPABASE] fallback insertOrder failed', e); }
-        }
-
-        throw new Error('Order persistence failed');
-      } catch (err) {
-        // propagate error so caller can show failure
-        throw err;
-      }
-    })();
-  };
-
-  const handleUpdateOrderStatus = (orderId: number, status: OrderStatus) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!useSupabase) return;
-    (async () => {
-      try {
-        await updateOrder(orderId, { status });
-  // debug log removed in production build
-      } catch (err) {
-        console.warn('[SUPABASE] failed to update order status', err);
-      }
-    })();
-  };
-  
-  const handleUpdateOrderDepartureDate = (orderId: number, date: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, departureDate: date } : o));
-    const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!useSupabase) return;
-    (async () => {
-      try {
-        await updateOrder(orderId, { departureDate: date });
-  // debug log removed in production build
-      } catch (err) {
-        console.warn('[SUPABASE] failed to update departure date', err);
-      }
-    })();
-  };
-
-  const handleUpdateOrderParticipants = async (orderId: number, participants: number) => {
-    // Find the order and destination to recalculate price
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return Promise.reject('Order not found');
-    const destination = destinations.find(d => d.id === order.destinationId);
-    let totalPrice = order.totalPrice;
-      if (destination) {
-      const safeTiers = Array.isArray(destination.priceTiers) && destination.priceTiers.length > 0 ? destination.priceTiers : [{ price: 0, minPeople: 1 }];
-      // Find best price tier for participants
-      const sortedTiers = [...safeTiers].sort((a, b) => b.minPeople - a.minPeople);
-      const applicableTier = sortedTiers.find(tier => participants >= tier.minPeople);
-      const perPerson = applicableTier ? applicableTier.price : Math.min(...safeTiers.map(t => t.price));
-      totalPrice = perPerson * participants;
-    }
-    // Update local state optimistically
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, participants, totalPrice } : o));
-
-    const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!useSupabase) return Promise.resolve({ ...order, participants, totalPrice });
-
-    try {
-      // Update both participants and totalPrice in Supabase
-      const updated = await updateOrder(orderId, { participants, totalPrice });
-  // debug log removed in production build
-      if (updated) {
-        setOrders(prev => prev.map(o => o.id === orderId ? (updated as unknown as any) : o));
-        return updated;
-      }
-      return { ...order, participants, totalPrice };
-    } catch (err) {
-      console.warn('[SUPABASE] failed to update participants/totalPrice', err);
-      return Promise.reject(err);
-    }
-  };
-
-
-  const handleConfirmPayment = (orderId: number, paymentDetails: { paymentStatus: 'DP' | 'Lunas', paymentAmount: number, notes: string }) => {
-    // Optimistically update local state to reflect payment immediately
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        const newPaymentRecord = {
-          amount: paymentDetails.paymentAmount,
-          date: new Date().toISOString(),
-          notes: paymentDetails.notes,
-        };
-
-        const existingHistory = o.paymentHistory || [];
-        const updatedHistory = [...existingHistory, newPaymentRecord];
-
-        const totalPaid = updatedHistory.reduce((sum, p) => sum + p.amount, 0);
-
-        const newPaymentStatus = totalPaid >= o.totalPrice ? 'Lunas' : 'DP';
-
-        // Only mark 'Siap Jalan' when fully paid; otherwise keep 'Menunggu Pembayaran'
-        const newStatus: OrderStatus = newPaymentStatus === 'Lunas' ? 'Siap Jalan' : 'Menunggu Pembayaran';
-
-        return {
-          ...o,
-          status: newStatus,
-          paymentStatus: newPaymentStatus,
-          paymentHistory: updatedHistory,
-        };
-      }
-      return o;
-    }));
-
-    const useSupabase = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!useSupabase) return;
-
-    (async () => {
-      try {
-        // Recreate the patch similar to local update (same as Web App Lama)
-        const prev = orders.find(o => o.id === orderId) ?? null;
-        const newPaymentRecord = {
-          amount: paymentDetails.paymentAmount,
-          date: new Date().toISOString(),
-          notes: paymentDetails.notes,
-        };
-        const existingHistory = prev?.paymentHistory || [];
-        const updatedHistory = [...existingHistory, newPaymentRecord];
-        const totalPaid = updatedHistory.reduce((sum, p) => sum + p.amount, 0);
-        const newPaymentStatus = totalPaid >= (prev?.totalPrice ?? 0) ? 'Lunas' : 'DP';
-        const newStatus: OrderStatus = newPaymentStatus === 'Lunas' ? 'Siap Jalan' : 'Menunggu Pembayaran';
-
-        const updated = await updateOrder(orderId, { paymentStatus: newPaymentStatus, paymentHistory: updatedHistory, status: newStatus });
-        if (updated) {
-          setOrders(prev => prev.map(o => o.id === orderId ? (updated as Order) : o));
-        }
-      } catch (err) {
-        console.warn('[SUPABASE] failed to persist payment update via updateOrder', err);
-      }
-    })();
-  };
-
-  const handleDeleteOrder = (orderId: number) => {
-    setOrders(prev => prev.filter(o => o.id !== orderId));
-  };
+  // Orders feature removed: handlers and state have been deleted
 
   const handleSaveSettings = (newSettings: AppSettings) => {
       setAppSettings(newSettings);
@@ -756,7 +537,7 @@ const App = () => {
     const dest = destinations.find(d => d.id === id || d.slug === slug) || null;
     useEffect(() => { if (dest) try { setPage && setPage('destinationDetail'); } catch {} }, [dest]);
   if (dest) {
-    return <DestinationDetailPage destination={dest} setPage={setPage} onBookNow={handleBookNow} onCreateOrder={handleCreateOrder} />;
+    return <DestinationDetailPage destination={dest} setPage={setPage} onBookNow={handleBookNow} />;
   }
 
   // If destination not found, show an empty-state with CTA similar to wishlist
@@ -789,10 +570,9 @@ const App = () => {
   // New routing using react-router while keeping legacy `setPage` for compatibility
   const renderRoutes = () => (
     <Routes>
-  <Route path="/" element={<HomePage onSearch={handleSearch} onViewDetail={handleViewDetail} onBookNow={handleBookNow} onCreateOrder={handleCreateOrder} onViewBlogDetail={handleViewBlogDetail} setPage={setPage} destinations={destinations} blogPosts={blogPosts} appSettings={appSettings} isLoading={homeIsLoading} reviews={reviews} />} />
-  <Route path="/destinations" element={<DestinationsPage allDestinations={destinations} onViewDetail={handleViewDetail} onBookNow={handleBookNow} onCreateOrder={handleCreateOrder} isLoading={homeIsLoading} />} />
+  <Route path="/" element={<HomePage onSearch={handleSearch} onViewDetail={handleViewDetail} onBookNow={handleBookNow} onViewBlogDetail={handleViewBlogDetail} setPage={setPage} destinations={destinations} blogPosts={blogPosts} appSettings={appSettings} isLoading={homeIsLoading} reviews={reviews} />} />
+  <Route path="/destinations" element={<DestinationsPage allDestinations={destinations} onViewDetail={handleViewDetail} onBookNow={handleBookNow} isLoading={homeIsLoading} />} />
   <Route path="/destinations/:slug" element={<DestinationDetailWrapper />} />
-  <Route path="/order" element={<OrderPage destinations={destinations} onCreateOrder={handleCreateOrder} />} />
   <Route path="/blog" element={<BlogPage blogPosts={blogPosts} onViewDetail={handleViewBlogDetail} isLoading={homeIsLoading} brandName={appSettings.brandName} />} />
   <Route path="/blog/:slug" element={<BlogDetailWrapper />} />
       <Route path="/search" element={<SearchResultsPage query={searchQuery} setPage={setPage} onViewDetail={handleViewDetail} onBookNow={handleBookNow} allDestinations={destinations} />} />
@@ -807,25 +587,18 @@ const App = () => {
             onRefresh={handleRefresh}
             destinations={destinations}
             blogPosts={blogPosts}
-            orders={orders}
             onSaveDestination={handleSaveDestination}
             onDeleteDestination={handleDeleteDestination}
             onSaveBlogPost={handleSaveBlogPost}
             onDeleteBlogPost={handleDeleteBlogPost}
-            onUpdateOrderStatus={handleUpdateOrderStatus}
-            onUpdateOrderDepartureDate={handleUpdateOrderDepartureDate}
-            onUpdateOrderParticipants={handleUpdateOrderParticipants}
-            onDeleteOrder={handleDeleteOrder}
-            onConfirmPayment={handleConfirmPayment}
+            // Orders removed: related handlers omitted
             appSettings={appSettings}
             setAppSettings={setAppSettings}
             onSaveSettings={handleSaveSettings}
           />
         </Suspense>
       ) : <AdminLoginPage onLogin={handleLogin} /> } />
-  {/* Public invoice route for shareable links */}
-  <Route path="/invoice/:invoiceId" element={<InvoicePage orders={orders} appSettings={appSettings} />} />
-  <Route path="/invoice/token/:token" element={<InvoicePage orders={orders} appSettings={appSettings} />} />
+  {/* Invoice routes removed (dependent on Orders) */}
       <Route path="*" element={<HomePage onSearch={handleSearch} onViewDetail={handleViewDetail} onBookNow={handleBookNow} onViewBlogDetail={handleViewBlogDetail} setPage={setPage} destinations={destinations} blogPosts={blogPosts} appSettings={appSettings} />} />
     </Routes>
   );
