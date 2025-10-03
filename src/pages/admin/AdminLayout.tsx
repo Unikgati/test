@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Destination, BlogPost, Page, AppSettings } from '../../types';
 import { AdminDashboardPage } from './AdminDashboardPage';
 import { AdminDestinationsPage } from './AdminDestinationsPage';
+import AdminLaptopRequestsPage from './AdminLaptopRequestsPage';
 import { AdminBlogPage } from './AdminBlogPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
 import { SunIcon, MoonIcon, MenuIcon, RefreshIcon } from '../../components/Icons';
@@ -77,6 +78,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                     <ul className="admin-nav">
                                         <li><NavLink to="/admin" end className={({isActive}) => isActive ? 'active' : ''} onClick={() => setIsSidebarOpen(false)}>Dashboard</NavLink></li>
                                         <li><NavLink to="/admin/destinations" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setIsSidebarOpen(false)}>Destinasi</NavLink></li>
+                                        <li><NavLink to="/admin/laptop-requests" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setIsSidebarOpen(false)}>Permintaan Laptop</NavLink></li>
                                         <li><NavLink to="/admin/blog" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setIsSidebarOpen(false)}>Blog</NavLink></li>
                                         <li><NavLink to="/admin/settings" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setIsSidebarOpen(false)}>Pengaturan</NavLink></li>
                                     </ul>
@@ -139,6 +141,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                     <Routes>
                         <Route index element={<AdminDashboardPage destinationCount={safeDestinations.length} blogPostCount={safeBlogPosts.length} />} />
                         <Route path="destinations" element={<AdminDestinationsPage destinations={safeDestinations} onSave={onSaveDestination} onDelete={onDeleteDestination} />} />
+                        <Route path="laptop-requests" element={<AdminLaptopRequestsPage laptopRequests={[]} onSave={async (r) => { try { await fetch('/api/upsert-laptop', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}` }, body: JSON.stringify(r) }); } catch(e) { console.warn('upsert laptop request failed', e); } }} onDelete={async (id) => { try { await fetch(`${import.meta.env.VITE_API_BASE || ''}/rest/v1/laptop_requests?id=eq.${id}`, { method: 'DELETE', headers: { 'apikey': import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''}` } }); } catch(e) { console.warn('delete laptop request failed', e); } }} />} />
                         <Route path="blog" element={<AdminBlogPage blogPosts={safeBlogPosts} onSave={onSaveBlogPost} onDelete={onDeleteBlogPost} />} />
                         {/* Orders section removed - invoice handling depends on orders and is disabled */}
                         {/* Note: public /invoice/:invoiceId route is registered at app-level (App.tsx) */}

@@ -7,10 +7,11 @@ interface DestinationCardProps {
     destination: Destination;
     onViewDetail: (destination: Destination) => void;
     onBookNow: (destination: Destination) => void;
+    onRequestLaptop?: (destination: Destination) => void;
     showCategories?: boolean;
 }
 
-const DestinationCardComponent: React.FC<DestinationCardProps> = ({ destination, onViewDetail, onBookNow, showCategories = true }) => {
+const DestinationCardComponent: React.FC<DestinationCardProps> = ({ destination, onViewDetail, onBookNow, onRequestLaptop, showCategories = true }) => {
     const { id, title, longDescription, priceTiers, duration, imageUrl, categories } = destination;
     const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
     const isWishlisted = isInWishlist(id);
@@ -28,6 +29,11 @@ const DestinationCardComponent: React.FC<DestinationCardProps> = ({ destination,
     const handleBookClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onBookNow(destination);
+    };
+
+    const handleRequestLaptopClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        try { onRequestLaptop && onRequestLaptop(destination); } catch { }
     };
     
     // Updated logic: Use safe fallbacks for priceTiers and categories
@@ -77,6 +83,9 @@ const DestinationCardComponent: React.FC<DestinationCardProps> = ({ destination,
                     </div>
                     <div className="card-actions">
                         <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); onViewDetail(destination); }}>Detail</button>
+                        {destination.laptopFormEnabled && onRequestLaptop ? (
+                            <button className="btn btn-ghost" onClick={handleRequestLaptopClick}>Minta Laptop</button>
+                        ) : null}
                         <button className="btn btn-primary" onClick={handleBookClick}>Pesan</button>
                     </div>
                 </div>

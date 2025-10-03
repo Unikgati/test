@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { FacilitiesList } from '../components/FacilitiesList';
 import { DestinationDetailSkeleton } from '../components/DetailSkeletons';
 import Seo from '../components/Seo';
+import LaptopRequestModal from '../components/LaptopRequestModal';
 
 type Tab = 'about' | 'itinerary' | 'facilities';
 
@@ -21,6 +22,7 @@ export const DestinationDetailPage: React.FC<DestinationDetailPageProps> = ({ de
     const location = useLocation();
     const openBookingFromState = (location && (location as any).state && (location as any).state.openBooking) || false;
     const [isBookingOpen, setIsBookingOpen] = useState<boolean>(openBookingFromState);
+    const [isLaptopModalOpen, setIsLaptopModalOpen] = useState<boolean>(false);
     const navigate = useNavigate();
     useEffect(() => { if (openBookingFromState) setIsBookingOpen(true); }, [openBookingFromState]);
 
@@ -333,10 +335,20 @@ export const DestinationDetailPage: React.FC<DestinationDetailPageProps> = ({ de
                         <span className="booking-price-label">Mulai dari</span>
                         <span className="booking-price">{formattedPrice} <span>/ org</span></span>
                     </div>
-                        <button className="btn btn-primary btn-large" onClick={() => { try { onBookNow && onBookNow(destination); } catch { try { navigate('/'); } catch {} } }}>Pesan</button>
+                        {destination.laptopFormEnabled ? (
+                            <>
+                                <button className="btn btn-secondary btn-large" onClick={() => setIsLaptopModalOpen(true)}>Minta Laptop</button>
+                                <button className="btn btn-primary btn-large" onClick={() => { try { onBookNow && onBookNow(destination); } catch { try { navigate('/'); } catch {} } }}>Pesan</button>
+                            </>
+                        ) : (
+                            <button className="btn btn-primary btn-large" onClick={() => { try { onBookNow && onBookNow(destination); } catch { try { navigate('/'); } catch {} } }}>Pesan</button>
+                        )}
                 </div>
             </div>
                         {/* Ordering is handled on /order page now. */}
+            {isLaptopModalOpen && (
+                <LaptopRequestModal destinationId={destination.id} destinationTitle={destination.title} onClose={() => setIsLaptopModalOpen(false)} />
+            )}
         </div>
     );
 };

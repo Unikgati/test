@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Destination, BlogPost, Page, HeroSlide, AppSettings } from '../types';
 import { DestinationCard } from '../components/DestinationCard';
+import LaptopRequestModal from '../components/LaptopRequestModal';
 import { BlogCard } from '../components/BlogCard';
 import DestinationSkeleton from '../components/DestinationSkeleton';
 import BlogSkeleton from '../components/BlogSkeleton';
@@ -184,7 +185,7 @@ const Hero = ({ onSearch, slides, categories }: { onSearch: (query: string) => v
     );
 };
 
-const PopularDestinations = ({ destinations, onViewDetail, onBookNow, isLoading }: { destinations: Destination[]; onViewDetail: (d: Destination) => void; onBookNow: (d: Destination) => void; isLoading?: boolean }) => (
+const PopularDestinations = ({ destinations, onViewDetail, onBookNow, onRequestLaptop, isLoading }: { destinations: Destination[]; onViewDetail: (d: Destination) => void; onBookNow: (d: Destination) => void; onRequestLaptop?: (d: Destination) => void; isLoading?: boolean }) => (
     <section className="destinations-section">
         <div className="container">
             <div className="section-header">
@@ -192,13 +193,13 @@ const PopularDestinations = ({ destinations, onViewDetail, onBookNow, isLoading 
                 <p>Paket wisata yang paling banyak diminati oleh para petualang seperti Anda.</p>
             </div>
             <div className="destinations-grid homepage-grid">
-                {isLoading ? Array.from({ length: 4 }).map((_, i) => <DestinationSkeleton key={i} />) : destinations.slice(0, 4).map(dest => <DestinationCard key={dest.id} destination={dest} onViewDetail={onViewDetail} onBookNow={onBookNow} showCategories={false} />)}
+                {isLoading ? Array.from({ length: 4 }).map((_, i) => <DestinationSkeleton key={i} />) : destinations.slice(0, 4).map(dest => <DestinationCard key={dest.id} destination={dest} onViewDetail={onViewDetail} onBookNow={onBookNow} onRequestLaptop={onRequestLaptop} showCategories={false} />)}
             </div>
         </div>
     </section>
 );
 
-const AllDestinationsSection = ({ destinations, onViewDetail, onBookNow, setPage }: { destinations: Destination[]; onViewDetail: (d: Destination) => void; onBookNow: (d: Destination) => void; setPage: (page: Page) => void; }) => {
+const AllDestinationsSection = ({ destinations, onViewDetail, onBookNow, setPage, onRequestLaptop }: { destinations: Destination[]; onViewDetail: (d: Destination) => void; onBookNow: (d: Destination) => void; setPage: (page: Page) => void; onRequestLaptop?: (d: Destination) => void; }) => {
     const [selectedCategory, setSelectedCategory] = useState('Semua');
     const navigate = useNavigate();
 
@@ -239,7 +240,7 @@ const AllDestinationsSection = ({ destinations, onViewDetail, onBookNow, setPage
                 
                 {filteredDestinations.length > 0 ? (
                     <div className="destinations-grid homepage-grid">
-                        {filteredDestinations.slice(0, 6).map(dest => <DestinationCard key={dest.id} destination={dest} onViewDetail={onViewDetail} onBookNow={onBookNow} showCategories={false} />)}
+                        {filteredDestinations.slice(0, 6).map(dest => <DestinationCard key={dest.id} destination={dest} onViewDetail={onViewDetail} onBookNow={onBookNow} onRequestLaptop={onRequestLaptop} showCategories={false} />)}
                     </div>
                 ) : (
                     <div className="no-results" style={{ padding: '1rem 0' }}>
@@ -294,10 +295,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBo
     }, [destinations]);
 
     const [activeBookingDest, setActiveBookingDest] = useState<Destination | null>(null);
+    const [laptopRequestDest, setLaptopRequestDest] = useState<Destination | null>(null);
     const navigate = useNavigate();
 
     const openBookingFromCard = (dest: Destination) => {
     try { onBookNow && onBookNow(dest); } catch { try { navigate('/'); } catch {} }
+    };
+
+    const handleRequestLaptop = (dest: Destination) => {
+        setLaptopRequestDest(dest);
     };
 
     return (
@@ -310,12 +316,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBo
                 siteName={appSettings?.brandName || 'TravelGo'}
             />
             <Hero onSearch={onSearch} slides={appSettings.heroSlides} categories={categories} />
-            <PopularDestinations destinations={destinations} onViewDetail={onViewDetail} onBookNow={openBookingFromCard} isLoading={isLoading} />
+            <PopularDestinations destinations={destinations} onViewDetail={onViewDetail} onBookNow={openBookingFromCard} onRequestLaptop={handleRequestLaptop} isLoading={isLoading} />
             <AllDestinationsSection 
                 destinations={destinations} 
                 onViewDetail={onViewDetail} 
                 onBookNow={openBookingFromCard}
                 setPage={setPage}
+                onRequestLaptop={handleRequestLaptop}
             />
             <BlogSection blogPosts={blogPosts} setPage={setPage} onViewDetail={onViewBlogDetail} isLoading={isLoading} />
             {reviews && reviews.length > 0 && (
@@ -336,6 +343,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onSearch, onViewDetail, onBo
                 </section>
             )}
             {/* Booking is now handled by /order page */}
+            {laptopRequestDest && (
+                <LaptopRequestModal destinationId={laptopRequestDest.id} destinationTitle={laptopRequestDest.title} onClose={() => setLaptopRequestDest(null)} />
+            )}
         </>
     );
 };

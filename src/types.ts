@@ -7,6 +7,10 @@ export type Destination = {
   id: number;
   slug?: string;
   title: string;
+  /** If true, destination requires/offers a laptop request form (custom fields below) */
+  laptopFormEnabled?: boolean;
+  /** Optional machine-readable schema for laptop form (stored as JSON in DB) */
+  laptopFormSchema?: any; // e.g. [{ key, label, type, required }]
   priceTiers: PriceTier[];
   duration: number;
   imageUrl: string;
